@@ -8,6 +8,7 @@ from multiprocessing.dummy import Pool as ThreadPool
 import logging
 import sys
 import os
+import json
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -69,9 +70,19 @@ def _get_cate_pagenum(cid):
     print e
   return 0
 
-def _download(tup):
-  url = tup[0]
-  path = tup[1]
+def _download_dict(cid, path = "./data/dicts/"):
+  url = "http://pinyin.sogou.com/dict/download_txt.php?id=%s" % (cid, )
+  try:
+    if not os.path.isfile("%s%s" % (path, cid)):
+      r = requests.get(url, headers = h)
+      _save(r.text, "dict.txt", "%s%s/" % (path, cid))
+      logging.info("Got dict of %s ." % (cid, ))
+    else:
+      logging.info("Skip dict of %s ." % (cid, ))
+    return True
+  except Exception as e:
+    print e
+    return False
 
 def _save(content, filename, path):
   try:
@@ -96,6 +107,30 @@ def _mkdir(path):
     print e
     return False
 
+def go(path = "./data/"):
+  lst_file = "%s/%s" % (path, "list.json")
+  if os.path.isfile(lst_file):
+    with open(lst_file) as f:
+      c = f.read()
+    if len(c) > 0:
+      lst = json.loads(c)
+    else:
+      lst = dict_list()
+      _save(json.dumps(lst), "list.json", path)
+  else:
+    lst = dict_list()
+    _save(json.dumps(lst), "list.json", path)
+    
+  s = []
+  for k, v in lst.items():
+    for i in v:
+      s.append(i)
+
+  pool = ThreadPool(16)
+  r = pool.map(_download_dict, s)
+  pool.close() 
+  pool.join()
+
 if __name__ == '__main__':
-  lst = dict_list() 
+  go()
   
