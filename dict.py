@@ -72,13 +72,31 @@ def _get_cate_pagenum(cid):
 
 def _download_dict(cid, path = "./data/dicts/"):
   url = "http://pinyin.sogou.com/dict/download_txt.php?id=%s" % (cid, )
+  if not os.path.isfile("%s%s/%s" % (path, cid, "dict.txt")):
+    r = requests.get(url, headers = h)
+    _save(r.text, "dict.txt", "%s%s/" % (path, cid))
+    logging.info("Got dict of %s ." % (cid, ))
+  else:
+    logging.info("Skip dict of %s ." % (cid, ))
+
+def _get_dict_info(cid, path = "./data/dicts/"):
+  url = "http://pinyin.sogou.com/dict/detail/index/%s" % (cid, )
+  info = {}
   try:
-    if not os.path.isfile("%s%s" % (path, cid)):
+    if not os.path.isfile("%s%s/%s" % (path, cid, "info1.json")):
       r = requests.get(url, headers = h)
-      _save(r.text, "dict.txt", "%s%s/" % (path, cid))
-      logging.info("Got dict of %s ." % (cid, ))
+      soup = bs(r.text)
+      box = soup.select("#dict_info_content")[0]
+      info["cnt"] = box.select(".dict_info_list ul li")[0].text.encode('utf-8')
+      info["creator"] = box.select(".dict_info_list ul li")[1].text.encode("utf-8")
+      info["size"] = box.select(".dict_info_list ul li")[2].text.encode("utf-8")
+      info["updated_at"] = box.select(".dict_info_list ul li")[3].text.encode('utf-8')
+      info["version"] = box.select(".dict_info_list ul li")[4].text.encode("utf-8")
+      info["intro"] = box.select("#dict_info_intro .dict_info_str")[0].text
+      _save(json.dumps(info), "info.json", "%s%s/" % (path, cid))
+      logging.info("Got info of %s ." % (cid, ))
     else:
-      logging.info("Skip dict of %s ." % (cid, ))
+      logging.info("Skip info of %s ." % (cid, ))
     return True
   except Exception as e:
     print e
@@ -127,9 +145,17 @@ def go(path = "./data/"):
       s.append(i)
 
   pool = ThreadPool(16)
-  r = pool.map(_download_dict, s)
+  pool.map(_download_dict, s)
   pool.close() 
   pool.join()
+  logging.info("Dict done")
+
+  pool = ThreadPool(16)
+  pool.map(_get_dict_info, s)
+  pool.close() 
+  pool.join()
+  logging.info("Info done")
+
 
 if __name__ == '__main__':
   go()
