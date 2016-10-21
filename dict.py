@@ -39,6 +39,19 @@ def dict_list():
   logging.info("End to get dict index ...")
   return ret
 
+def _cate_name(cid):
+  url = "http://pinyin.sogou.com/dict/cate/index/%s" % (cid, )
+  try:
+    r = requests.get(url, headers = h)
+    soup = bs(r.text)
+    name = soup.select("title")[0].text.split("_")[0]
+    print "id %s's name is %s" % (cid, name)
+    logging.info("id %s's name is %s" % (cid, name))
+    return name
+  except Exception as e:
+    print e
+    return ""
+
 def dict_tree():
   index = "http://pinyin.sogou.com/dict/cate/index/"
   ret  = {}
@@ -218,13 +231,36 @@ def go(path = "./data/"):
     with open(tree_file) as f:
       c = f.read()
     if len(c) > 0:
-      lst = json.loads(c)
+      tree = json.loads(c)
     else:
-      lst = dict_tree()
+      tree = dict_tree()
       _save(json.dumps(lst), "tree.json", path)
   else:
-    lst = dict_tree()
+    tree = dict_tree()
     _save(json.dumps(lst), "tree.json", path)
+
+  
+  name_file = "%s/%s" % (path, "name.json")
+  if not os.path.isfile(name_file):
+    names = []
+    for k,v in tree.items():
+      names.append(k)
+      for kk,vv in v.items():
+        if isinstance(vv, list):
+          names.append(kk)
+        else:
+          for kkk, vvv in vv.items():
+            names.append(kkk)
+  
+    pool = ThreadPool(16)
+    n = pool.map(_cate_name, names)
+    pool.close() 
+    pool.join()
+    name = {}
+    for i in range(len(names)):
+      name[names[i]] = n[i]
+    _save(json.dumps(name), "name.json", path)
+    logging.info("Name done")
     
   s = []
   for k, v in lst.items():
