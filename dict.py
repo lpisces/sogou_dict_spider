@@ -39,11 +39,84 @@ def dict_list():
   logging.info("End to get dict index ...")
   return ret
 
+def dict_tree():
+  index = "http://pinyin.sogou.com/dict/cate/index/"
+  ret  = {}
+  try:
+    logging.info("Start to get dict tree ...")
+    r = requests.get(index, headers = h)
+    soup = bs(r.text)
+    cate = soup.select(".nav_list a")
+    index_ids = [c["href"].split("/")[-1] for c in cate]
+    pool = ThreadPool(4)
+    r = pool.map(_sub_cate, index_ids)
+    pool.close() 
+    pool.join()
+    for i in range(len(index_ids)):
+      ret[index_ids[i]] = r[i] 
+    tree = {}
+    q = []
+    for k,v in ret.items():
+      for kk,vv in v.items():
+        if not k in tree:
+          tree[k] = {}
+        if not kk in tree[k]:
+          tree[k][kk] = {}
+        if len(vv) == 0:
+          q.append(kk)
+        for i in vv:
+          if not i in tree[k][kk]:
+            q.append(i)
+    
+    pool = ThreadPool(16)
+    r = pool.map(_cate_list, q)
+    pool.close() 
+    pool.join()
+
+    n = 0
+    for k,v in ret.items():
+      for kk,vv in v.items():
+        if not k in tree:
+          tree[k] = {}
+        if not kk in tree[k]:
+          tree[k][kk] = {}
+        if len(vv) == 0:
+          tree[k][kk] = r[n]
+          n += 1
+        for i in vv:
+          if not i in tree[k][kk]:
+            tree[k][kk][i] = r[n]
+            n += 1
+  except Exception as e:
+    logging.info("Failed to get dict tree .")
+    print e
+  logging.info("End to get dict tree ...")
+  return tree
+
+def _sub_cate(cid):
+  url = "http://pinyin.sogou.com/dict/cate/index/%s" % (cid, )
+  try:
+    r = requests.get(url, headers = h)
+    soup = bs(r.text)
+    cates = {}
+    no_child = [a["href"].split("/")[-1] for a in soup.select(".cate_words_list .cate_no_child a")]
+    for i in no_child:
+      cates[i] = []
+    has_child = [a["href"].split("/")[-1] for a in soup.select(".cate_words_list .cate_has_child a")]
+    child = soup.select(".cate_child_words_list")
+    g = []
+    for c in child:
+      g.append([i["href"].split("/")[-1] for i in c.select("a")])
+    for j in range(len(has_child)):
+      cates[has_child[j]] = g[j]
+  except Exception as e:
+    print e
+  return cates
+    
+
 def _cate_list(cid):
   url = "http://pinyin.sogou.com/dict/cate/index/%s/default/%s"
   num = _get_cate_pagenum(cid)  
-  if num == 0:
-    return [] 
   ids = []
   for i in range(1, num + 1):
     u = url % (cid, i)
@@ -58,7 +131,7 @@ def _cate_list(cid):
   return ids
 
 def _get_cate_pagenum(cid):
-  url = "http://pinyin.sogou.com/dict/cate/index/%s/default/1" % (cid, )
+  url = "http://pinyin.sogou.com/dict/cate/index/%s" % (cid, )
   try:
     logging.info("Get page number of %s " % (cid, ))
     r = requests.get(url, headers = h)
@@ -68,7 +141,8 @@ def _get_cate_pagenum(cid):
   except Exception as e:
     logging.info("Failed to get page number of %s " % (cid, ))
     print e
-  return 0
+    return 1
+  return 1
 
 def _download_dict(cid, path = "./data/dicts/"):
   url = "http://pinyin.sogou.com/dict/download_txt.php?id=%s" % (cid, )
@@ -83,7 +157,7 @@ def _get_dict_info(cid, path = "./data/dicts/"):
   url = "http://pinyin.sogou.com/dict/detail/index/%s" % (cid, )
   info = {}
   try:
-    if not os.path.isfile("%s%s/%s" % (path, cid, "info1.json")):
+    if not os.path.isfile("%s%s/%s" % (path, cid, "info.json")):
       r = requests.get(url, headers = h)
       soup = bs(r.text)
       box = soup.select("#dict_info_content")[0]
@@ -138,6 +212,19 @@ def go(path = "./data/"):
   else:
     lst = dict_list()
     _save(json.dumps(lst), "list.json", path)
+
+  tree_file = "%s/%s" % (path, "tree.json")
+  if os.path.isfile(tree_file):
+    with open(tree_file) as f:
+      c = f.read()
+    if len(c) > 0:
+      lst = json.loads(c)
+    else:
+      lst = dict_tree()
+      _save(json.dumps(lst), "tree.json", path)
+  else:
+    lst = dict_tree()
+    _save(json.dumps(lst), "tree.json", path)
     
   s = []
   for k, v in lst.items():
@@ -158,5 +245,4 @@ def go(path = "./data/"):
 
 
 if __name__ == '__main__':
-  go()
-  
+  go()  
