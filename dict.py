@@ -161,6 +161,7 @@ def _download_dict(cid, path = "./data/dicts/"):
   url = "http://pinyin.sogou.com/dict/download_txt.php?id=%s" % (cid, )
   if not os.path.isfile("%s%s/%s" % (path, cid, "dict.txt")):
     r = requests.get(url, headers = h)
+    r.encoding = "gbk"
     _save(r.text, "dict.txt", "%s%s/" % (path, cid))
     logging.info("Got dict of %s ." % (cid, ))
   else:
@@ -170,7 +171,7 @@ def _get_dict_info(cid, path = "./data/dicts/"):
   url = "http://pinyin.sogou.com/dict/detail/index/%s" % (cid, )
   info = {}
   try:
-    if not os.path.isfile("%s%s/%s" % (path, cid, "info1.json")):
+    if not os.path.isfile("%s%s/%s" % (path, cid, "info.json")):
       r = requests.get(url, headers = h)
       soup = bs(r.text)
       box = soup.select("#dict_info_content")[0]
@@ -195,7 +196,7 @@ def _save(content, filename, path):
     if not os.path.isdir(path):
       _mkdir(path)
     with open(path + filename, "w") as f:
-      f.write(content)
+      f.write(content.encode("utf-8"))
     return True
   except Exception as e:
     print e
