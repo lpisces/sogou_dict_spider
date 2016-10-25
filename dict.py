@@ -170,7 +170,7 @@ def _get_dict_info(cid, path = "./data/dicts/"):
   url = "http://pinyin.sogou.com/dict/detail/index/%s" % (cid, )
   info = {}
   try:
-    if not os.path.isfile("%s%s/%s" % (path, cid, "info.json")):
+    if not os.path.isfile("%s%s/%s" % (path, cid, "info1.json")):
       r = requests.get(url, headers = h)
       soup = bs(r.text)
       box = soup.select("#dict_info_content")[0]
@@ -180,6 +180,7 @@ def _get_dict_info(cid, path = "./data/dicts/"):
       info["updated_at"] = box.select(".dict_info_list ul li")[3].text.encode('utf-8')
       info["version"] = box.select(".dict_info_list ul li")[4].text.encode("utf-8")
       info["intro"] = box.select("#dict_info_intro .dict_info_str")[0].text
+      info["name"] = soup.select("title")[0].text.split("_")[0]
       _save(json.dumps(info), "info.json", "%s%s/" % (path, cid))
       logging.info("Got info of %s ." % (cid, ))
     else:
