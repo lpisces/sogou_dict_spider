@@ -236,11 +236,10 @@ def go(path = "./data/"):
       tree = json.loads(c)
     else:
       tree = dict_tree()
-      _save(json.dumps(lst), "tree.json", path)
+      _save(json.dumps(tree), "tree.json", path)
   else:
     tree = dict_tree()
-    _save(json.dumps(lst), "tree.json", path)
-
+    _save(json.dumps(tree), "tree.json", path)
   
   name_file = "%s/%s" % (path, "name.json")
   if not os.path.isfile(name_file):
